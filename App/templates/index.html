@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Speech App</title>
+</head>
+<body>
+    <h1>Speech-to-Text (STT)</h1>
+    <form action="{% url 'speech_to_text' %}" method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <label for="audio">Upload Audio File:</label>
+        <input type="file" id="audio" name="audio" accept="audio/wav">
+        <button type="submit">Convert to Text</button>
+    </form>
+
+    <h1>Text-to-Speech (TTS)</h1>
+    <form id="textToSpeechForm" method="POST" action="{% url 'text_to_speech' %}">
+    {% csrf_token %}
+    <label for="text">Enter Text:</label>
+    <input type="text" id="text" name="text">
+    <button type="submit">Convert to Speech</button>
+</form>
+
+<!-- Audio element to play the returned speech -->
+<audio id="audioPlayer" controls style="display: none;"></audio>
+<script>
+    // Intercept the form submit to play audio dynamically
+    document.getElementById('textToSpeechForm').onsubmit = async function(event) {
+        event.preventDefault(); // Prevent normal form submission
+
+        let formData = new FormData(this);
+
+        let response = await fetch(this.action, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            // Get the audio file as a blob and play it
+            let audioBlob = await response.blob();
+            let audioUrl = URL.createObjectURL(audioBlob);
+
+            let audioPlayer = document.getElementById('audioPlayer');
+            audioPlayer.src = audioUrl;
+            audioPlayer.style.display = 'block';
+            audioPlayer.play();
+        } else {
+            console.error('Failed to convert text to speech.');
+        }
+    };
+</script>
+</body>
+</html>
+
+
