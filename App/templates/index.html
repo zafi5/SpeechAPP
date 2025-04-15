@@ -1,54 +1,271 @@
 <!DOCTYPE html>
-<html>
-<head>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Speech App</title>
-</head>
-<body>
-    <h1>Speech-to-Text (STT)</h1>
-    <form action="{% url 'speech_to_text' %}" method="POST" enctype="multipart/form-data">
-        {% csrf_token %}
-        <label for="audio">Upload Audio File:</label>
-        <input type="file" id="audio" name="audio" accept="audio/wav">
-        <button type="submit">Convert to Text</button>
-    </form>
+    <style>
+      /* Reset basic styles */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-    <h1>Text-to-Speech (TTS)</h1>
-    <form id="textToSpeechForm" method="POST" action="{% url 'text_to_speech' %}">
-    {% csrf_token %}
-    <label for="text">Enter Text:</label>
-    <input type="text" id="text" name="text">
-    <button type="submit">Convert to Speech</button>
-</form>
+      body {
+        font-family: "Arial", sans-serif;
+        background-color: #f4f4f4;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        text-align: center;
+      }
 
-<!-- Audio element to play the returned speech -->
-<audio id="audioPlayer" controls style="display: none;"></audio>
-<script>
-    // Intercept the form submit to play audio dynamically
-    document.getElementById('textToSpeechForm').onsubmit = async function(event) {
-        event.preventDefault(); // Prevent normal form submission
+      .container {
+        background: white;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 600px;
+      }
 
-        let formData = new FormData(this);
+      h1 {
+        color: #333;
+        font-size: 2em;
+        margin-bottom: 20px;
+        font-weight: normal;
+      }
 
-        let response = await fetch(this.action, {
-            method: 'POST',
-            body: formData
-        });
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        margin-top: 20px;
+      }
 
-        if (response.ok) {
-            // Get the audio file as a blob and play it
-            let audioBlob = await response.blob();
-            let audioUrl = URL.createObjectURL(audioBlob);
+      label {
+        font-size: 16px;
+        color: #555;
+        text-align: left;
+      }
 
-            let audioPlayer = document.getElementById('audioPlayer');
-            audioPlayer.src = audioUrl;
-            audioPlayer.style.display = 'block';
-            audioPlayer.play();
-        } else {
-            console.error('Failed to convert text to speech.');
+      input[type="file"],
+      input[type="text"] {
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #ddd;
+        background-color: #fafafa;
+        font-size: 16px;
+        width: 100%;
+        box-sizing: border-box;
+        transition: border-color 0.3s ease;
+      }
+
+      input[type="file"]:focus,
+      input[type="text"]:focus {
+        border-color: #007bff;
+        outline: none;
+      }
+
+      button {
+        padding: 12px;
+        background-color: #007bff;
+        color: white;
+        font-size: 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover {
+        background-color: #0056b3;
+      }
+
+      button:active {
+        background-color: #004085;
+      }
+
+      #errorMessage {
+        color: red;
+        font-size: 14px;
+        margin-top: 10px;
+        display: none;
+      }
+
+      #processing {
+        display: none;
+        font-size: 18px;
+        color: #007bff;
+      }
+
+      /* Spinner */
+      .spinner {
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-top: 4px solid #007bff;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
         }
-    };
-</script>
-</body>
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      audio {
+        margin-top: 20px;
+        display: none;
+        width: 100%;
+        border-radius: 6px;
+      }
+
+      /* Mobile responsiveness */
+      @media (max-width: 600px) {
+        .container {
+          padding: 20px;
+        }
+
+        h1 {
+          font-size: 1.5em;
+        }
+
+        button {
+          font-size: 14px;
+        }
+
+        input[type="file"],
+        input[type="text"] {
+          padding: 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Speech App</h1>
+
+      <!-- Speech-to-Text Form -->
+      <h2>Speech-to-Text (STT)</h2>
+      <form
+        action="{% url 'speech_to_text' %}"
+        method="POST"
+        enctype="multipart/form-data"
+      >
+        {% csrf_token %}
+        <label for="audio">Upload Audio File (WAV):</label>
+        <input
+          type="file"
+          id="audio"
+          name="audio"
+          accept="audio/wav"
+          required
+        />
+        <button type="submit">Convert to Text</button>
+      </form>
+
+      <!-- Text-to-Speech Form -->
+      <h2>Text-to-Speech (TTS)</h2>
+      <form
+        id="textToSpeechForm"
+        method="POST"
+        action="{% url 'text_to_speech' %}"
+      >
+        {% csrf_token %}
+        <label for="text">Enter Text:</label>
+        <input type="text" id="text" name="text" required />
+        <button type="submit">Convert to Speech</button>
+      </form>
+
+      <!-- Processing Indicator -->
+      <div id="processing">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+      </div>
+
+      <!-- Error Message -->
+      <div id="errorMessage"></div>
+
+      <!-- Audio Player -->
+      <audio id="audioPlayer" controls></audio>
+
+      <!-- Result Display (STT result) -->
+      <div id="sttResult" style="display: none; margin-top: 20px"></div>
+    </div>
+
+    <script>
+      // Handle Text-to-Speech form submit
+      document.getElementById('textToSpeechForm').onsubmit = async function(event) {
+          event.preventDefault(); // Prevent form submission
+
+          let formData = new FormData(this);
+
+          // Show processing indicator
+          document.getElementById('processing').style.display = 'block';
+
+          let response = await fetch(this.action, {
+              method: 'POST',
+              body: formData
+          });
+
+          document.getElementById('processing').style.display = 'none'; // Hide processing indicator
+
+          if (response.ok) {
+              let audioBlob = await response.blob();
+              let audioUrl = URL.createObjectURL(audioBlob);
+
+              let audioPlayer = document.getElementById('audioPlayer');
+              audioPlayer.src = audioUrl;
+              audioPlayer.style.display = 'block';
+              audioPlayer.play();
+
+              // Hide error message if any
+              document.getElementById('errorMessage').style.display = 'none';
+          } else {
+              console.error('Failed to convert text to speech.');
+              document.getElementById('errorMessage').innerText = "There was an error converting the text to speech. Please try again.";
+              document.getElementById('errorMessage').style.display = 'block';
+          }
+      };
+
+      // Handle Speech-to-Text form submit
+      document.querySelector('form[action="{% url 'speech_to_text' %}"]').onsubmit = async function(event) {
+          event.preventDefault(); // Prevent form submission
+
+          let formData = new FormData(this);
+
+          // Show processing indicator
+          document.getElementById('processing').style.display = 'block';
+
+          let response = await fetch(this.action, {
+              method: 'POST',
+              body: formData
+          });
+
+          document.getElementById('processing').style.display = 'none'; // Hide processing indicator
+
+          if (response.ok) {
+              let data = await response.json();
+              // Display the recognized text
+              document.getElementById('sttResult').style.display = 'block';
+              document.getElementById('sttResult').innerText = "Recognized Text: " + data.recognized_text;
+
+              // Hide error message if any
+              document.getElementById('errorMessage').style.display = 'none';
+          } else {
+              console.error('Failed to convert speech to text.');
+              document.getElementById('errorMessage').innerText = "There was an error converting the speech to text. Please try again.";
+              document.getElementById('errorMessage').style.display = 'block';
+          }
+      };
+    </script>
+  </body>
 </html>
-
-
